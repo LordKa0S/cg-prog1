@@ -1,3 +1,2 @@
-# prog1-2021-shell
-This repo branch contains the shell for program 1 from cg class 2021 at nc state (ray tracing triangles). 
-
+# cg-prog1-2022
+- Open index.html in the folder extracted from the archive.
