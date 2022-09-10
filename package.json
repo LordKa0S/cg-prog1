@@ -1,0 +1,22 @@
+{
+  "name": "cg-prog1",
+  "version": "1.0.0",
+  "description": "This repo branch contains the shell for program 1 from cg class 2021 at nc state (ray tracing triangles).",
+  "main": "drawstuff.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LordKa0S/cg-prog1.git"
+  },
+  "author": "Kaustubh Badrike",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/LordKa0S/cg-prog1/issues"
+  },
+  "homepage": "https://github.com/LordKa0S/cg-prog1#readme",
+  "devDependencies": {
+    "eslint": "^8.23.0"
+  }
+}
