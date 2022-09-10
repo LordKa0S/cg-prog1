@@ -1,0 +1,13 @@
+canvas {
+    width: 99%;
+    height: 99%;
+}
+
+html {
+    height: 100%;
+    width: 100%;
+}
+
+body {
+    margin: 0px;
+}

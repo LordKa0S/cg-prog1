@@ -32,10 +32,6 @@
  * @property {number} ez
  */
 
-/**
- * The default height and width of the canvas
- */
-const DEFAULT_DIMENSION = 512;
 
 /**
  * Standard class URL for boxes
@@ -50,8 +46,6 @@ const getCanvasContext = () => {
     let canvas = document.getElementsByTagName("canvas").item(0);
     if (canvas === null) {
         canvas = document.createElement("canvas");
-        canvas.width = DEFAULT_DIMENSION;
-        canvas.height = DEFAULT_DIMENSION;
         document.body.appendChild(canvas);
     }
     return canvas.getContext("2d");
