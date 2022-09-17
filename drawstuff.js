@@ -119,7 +119,7 @@ const drawBoxesInContext = (context, boxes, eye) => {
     for (let pxCol = 0; pxCol < width; pxCol++) {
         const px = (0.5 + pxCol) * pixelWidth;
         for (let pxRow = 0; pxRow < height; pxRow++) {
-            const py = (0.5 + pxRow) * pixelHeight;
+            const py = windowHeight -  (0.5 + pxRow) * pixelHeight;
             let mint0 = Infinity;
             /**
              * @type {Box['diffuse']}
