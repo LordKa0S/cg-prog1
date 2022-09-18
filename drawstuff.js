@@ -38,15 +38,21 @@
  */
 const INPUT_BOXES_URL = new URL("https://ncsucgclass.github.io/prog1/boxes.json");
 
+const CANVAS_DEFAULT_SCALE = 6;
+
 /**
- * 
+ * @param {?number} windowWidth
+ * @param {?number} windowHeight
  * @returns {CanvasRenderingContext2D} The context for the first canvas in the document
  */
-const getCanvasContext = () => {
+const getCanvasContext = (windowWidth, windowHeight) => {
     let canvas = document.getElementsByTagName("canvas").item(0);
     if (canvas === null) {
         canvas = document.createElement("canvas");
         document.body.appendChild(canvas);
+        const ratio = windowWidth / windowHeight;
+        canvas.height *= CANVAS_DEFAULT_SCALE;
+        canvas.width = canvas.height * ratio;
     }
     return canvas.getContext("2d");
 };
@@ -182,7 +188,9 @@ const drawBoxesInContext = (context, boxes, eye) => {
 };
 
 const main = async () => {
-    const context = getCanvasContext();
+    const windowWidth = 1;
+    const windowHeight = 1;
+    const context = getCanvasContext(windowWidth, windowHeight);
     const boxes = await getInputBoxes(INPUT_BOXES_URL);
     const eye = {
         ex: 0.5,
