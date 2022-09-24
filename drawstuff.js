@@ -1,3 +1,16 @@
+/**
+ * Standard class URL for boxes
+ */
+const INPUT_BOXES_URL = new URL("https://ncsucgclass.github.io/prog1/boxes.json");
+
+const CANVAS_DEFAULT_SCALE = 6;
+
+/**
+ * @typedef {Object} Illuminator
+ * @property {[number, number, number]} ambient
+ * @property {[number, number, number]} diffuse
+ * @property {[number, number, number]} specular
+ */
 
 /**
  * Object representing a box
@@ -8,9 +21,11 @@
  * @property {number} ty
  * @property {number} fz
  * @property {number} rz
- * @property {[number, number, number]} ambient
- * @property {[number, number, number]} diffuse
- * @property {[number, number, number]} specular
+ * @property {number} n
+ */
+
+/**
+ * @typedef {Box & Illuminator} BoxIlluminator
  */
 
 /**
@@ -26,19 +41,95 @@
  */
 
 /**
- * @typedef {Object} Eye
- * @property {number} ex
- * @property {number} ey
- * @property {number} ez
+ * @typedef {Object} Point
+ * @property {number} x
+ * @property {number} y
+ * @property {number} z
  */
-
 
 /**
- * Standard class URL for boxes
+ * @typedef {Point & Illuminator} Light
  */
-const INPUT_BOXES_URL = new URL("https://ncsucgclass.github.io/prog1/boxes.json");
 
-const CANVAS_DEFAULT_SCALE = 6;
+/**
+ * @typedef {Object} IntersectionResult
+ * @property {boolean} isIntersecting
+ * @property {Array<number>} tList
+ * @property {Array<number>} txList
+ * @property {Array<number>} tyList
+ * @property {Array<number>} tzList
+ * @property {Array<Point>} iList
+ */
+
+class Vector {
+    /**
+     * @type {Array<number>}
+     */
+    dimensions = [];
+
+    constructor(...dimensions) {
+        this.dimensions = dimensions;
+    }
+
+    magnitude = () => {
+        let result = 0;
+        for (const dimension of this.dimensions) {
+            result += Math.pow(dimension, 2);
+        }
+        return Math.sqrt(result);
+    };
+
+    /**
+     * 
+     * @param {Vector} vector 
+     * @returns 
+     */
+    static normalize = (vector) => {
+        const magnitude = vector.magnitude();
+        const result = new Vector();
+        for (const dimension of vector.dimensions) {
+            result.dimensions.push(dimension / magnitude);
+        }
+        return result;
+    };
+
+    /**
+     * 
+     * @param  {...Vector} vectors 
+     * @returns {Vector}
+     */
+    static add = (...vectors) => {
+        const result = new Vector();
+        for (const vector of vectors) {
+            const maxDim = Math.max(result.dimensions.length, vector.dimensions.length);
+            while (result.dimensions.length < maxDim) {
+                result.dimensions.push(0);
+            }
+            for (let dimIndex = 0; dimIndex < maxDim; dimIndex++) {
+                const vDim = vector.dimensions[dimIndex] ?? 0;
+                result.dimensions[dimIndex] += vDim;
+            }
+        }
+        return result;
+    };
+
+    /**
+     * 
+     * @param {Vector} vector1 
+     * @param {Vector} vector2 
+     * @returns {number}
+     */
+    static dot = (vector1, vector2) => {
+        const maxDim = Math.max(vector1.dimensions.length, vector2.dimensions.length);
+        let result = 0;
+        for (let dimIndex = 0; dimIndex < maxDim; dimIndex++) {
+            const vec1Dim = vector1.dimensions[dimIndex] ?? 0;
+            const vec2Dim = vector2.dimensions[dimIndex] ?? 0;
+            result += (vec1Dim * vec2Dim);
+        }
+        return result;
+    };
+}
 
 /**
  * @param {?number} windowWidth
@@ -60,11 +151,11 @@ const getCanvasContext = (windowWidth, windowHeight) => {
 /**
  * get the input boxex from the specified URL
  * @param {URL} url URL to fetch the boxes from
- * @returns {Array<Box>} All box objects specified in the url
+ * @returns {Promise<Array<BoxIlluminator>>} All box objects specified in the url
  */
 const getInputBoxes = async (url) => {
     const response = await fetch(url);
-    return response.json();
+    return await response.json();
 };
 
 /**
@@ -86,11 +177,63 @@ const drawPixel = (imageData, abscissa, ordinate, color) => {
 
 /**
  * 
- * @param {Box['diffuse']} diffuse 
+ * @param {BoxIlluminator} box 
+ * @param {IntersectionResult} intersectionResult 
+ * @returns {Vector}
+ */
+const getNormal = (intersectionResult) => {
+    const [t] = intersectionResult.tList;
+    const vectComponent = [0, 0, 0];
+    const [tl, txr] = intersectionResult.txList;
+    if (t === tl) {
+        vectComponent[0] += -1;
+    } else if (t === txr) {
+        vectComponent[0] += 1;
+    }
+    const [tb, tt] = intersectionResult.tyList;
+    if (t === tb) {
+        vectComponent[1] += -1;
+    } else if (t === tt) {
+        vectComponent[1] += 1;
+    }
+    const [tf, tzr] = intersectionResult.tzList;
+    if (t === tf) {
+        vectComponent[2] += -1;
+    } else if (t === tzr) {
+        vectComponent[2] += 1;
+    }
+    return new Vector(...vectComponent);
+};
+
+/**
+ * 
+ * @param {BoxIlluminator} box 
+ * @param {IntersectionResult} intersectionResult
+ * @param {Point} eye
+ * @param {Array<Light>} lights
  * @returns {Color}
  */
-const diffuseToColor = (diffuse) => {
-    const [fR, fG, fB] = diffuse;
+const computeColor = (box, intersectionResult, eye, lights) => {
+    const rgb = [0, 0, 0];
+    const [i] = intersectionResult.iList;
+    const nVect = Vector.normalize(getNormal(intersectionResult));
+    if (nVect.dimensions[2] === -1 && box.diffuse[1] === 0.6) {
+        console.log(5);
+    }
+    const vVect = Vector.normalize(new Vector(eye.x - i.x, eye.y - i.y, eye.z - i.z));
+    for (const light of lights) {
+        const lVect = Vector.normalize(new Vector(light.x - i.x, light.y - i.y, light.z - i.z));
+        const hVect = Vector.normalize(Vector.add(vVect, lVect));
+        const nDotL = Vector.dot(nVect, lVect);
+        const nDotH = Vector.dot(nVect, hVect);
+        for (let colorIndex = 0; colorIndex < rgb.length; colorIndex++) {
+            const colAmb = (box.ambient[colorIndex] * light.ambient[colorIndex]);
+            const colDif = (box.diffuse[colorIndex] * light.diffuse[colorIndex] * Math.max(nDotL, 0));
+            const colSpec = (box.specular[colorIndex] * light.specular[colorIndex] * Math.pow(Math.max(nDotH, 0), box.n));
+            rgb[colorIndex] += colAmb + colDif + colSpec;
+        }
+    }
+    const [fR, fG, fB] = rgb;
     const multiplier = 255;
     return {
         r: fR * multiplier,
@@ -102,11 +245,96 @@ const diffuseToColor = (diffuse) => {
 
 /**
  * 
- * @param {CanvasRenderingContext2D} context 
- * @param {Array<Box>} boxes 
- * @param {Eye} eye
+ * @param {Point} p1 
+ * @param {Point} p2 
+ * @param {number} t 
+ * @returns {Point}
  */
-const drawBoxesInContext = (context, boxes, eye) => {
+const getParametricPoint = (p1, p2, t) => {
+    const result = {
+        x: p2.x + ((t - 1) * (p2.x - p1.x)),
+        y: p2.y + ((t - 1) * (p2.y - p1.y)),
+        z: p2.z + ((t - 1) * (p2.z - p1.z)),
+    };
+    return result;
+};
+
+/**
+ * 
+ * @param {Point} point1 
+ * @param {Point} point2 
+ * @param {BoxIlluminator} box 
+ * @returns {IntersectionResult}
+ */
+const computeBoxIntersection = (point1, point2, box) => {
+    const iList = [];
+    const x1 = point1.x;
+    const x2 = point2.x;
+    const y1 = point1.y;
+    const y2 = point2.y;
+    const z1 = point1.z;
+    const z2 = point2.z;
+    const dx = x2 - x1;
+    let tx0 = -Infinity;
+    let tx1 = Infinity;
+    let tl, txr, tt, tb, tf, tzr;
+    if (dx !== 0) {
+        tl = (box.lx - x1) / dx;
+        txr = (box.rx - x1) / dx;
+        tx0 = Math.min(tl, txr);
+        tx1 = Math.max(tl, txr);
+    }
+
+    const dy = y2 - y1;
+    let ty0 = -Infinity;
+    let ty1 = Infinity;
+    if (dy !== 0) {
+        tt = (box.ty - y1) / dy;
+        tb = (box.by - y1) / dy;
+        ty0 = Math.min(tt, tb);
+        ty1 = Math.max(tt, tb);
+    }
+
+    const dz = z2 - z1;
+    let tz0 = -Infinity;
+    let tz1 = Infinity;
+    if (dz !== 0) {
+        tf = (box.fz - z1) / dz;
+        tzr = (box.rz - z1) / dz;
+        tz0 = Math.min(tf, tzr);
+        tz1 = Math.max(tf, tzr);
+    }
+    const t0 = Math.max(tx0, ty0, tz0);
+    const t1 = Math.min(tx1, ty1, tz1);
+    let isIntersecting = false;
+    if (t1 >= t0) {
+        isIntersecting = true;
+    }
+    /**
+     * @type {IntersectionResult}
+     */
+    const result = {
+        isIntersecting,
+        tList: [t0, t1],
+        txList: [tl, txr],
+        tyList: [tb, tt],
+        tzList: [tf, tzr],
+        iList,
+    };
+    result.tList.forEach(t => {
+        iList.push(getParametricPoint(point1, point2, t));
+    });
+    return result;
+};
+
+/**
+ * 
+ * @param {CanvasRenderingContext2D} context 
+ * @param {Array<BoxIlluminator>} boxes 
+ * @param {Point} eye
+ * @param {Array<Light>} lights
+ */
+const drawBoxesInContext = (context, boxes, eye, lights) => {
     const { width, height } = context.canvas;
 
     /**
@@ -117,69 +345,50 @@ const drawBoxesInContext = (context, boxes, eye) => {
     const pixelWidth = windowWidth / width;
     const pixelHeight = windowHeight / height;
 
-    const { ex, ey, ez } = eye;
-
     const pz = 0;
 
     const imageData = context.createImageData(width, height);
     for (let pxCol = 0; pxCol < width; pxCol++) {
         const px = (0.5 + pxCol) * pixelWidth;
         for (let pxRow = 0; pxRow < height; pxRow++) {
-            const py = windowHeight -  (0.5 + pxRow) * pixelHeight;
+            const py = windowHeight - (0.5 + pxRow) * pixelHeight;
             let mint0 = Infinity;
             /**
-             * @type {Box['diffuse']}
+             * @type {BoxIlluminator}
              */
-            let mintDiffuse = null;
+            let mintBox = null;
+            /**
+             * @type {IntersectionResult}
+             */
+            let minIntersectionResult = null;
+            /**
+             * @type {Point}
+             */
+            const pixel = {
+                x: px,
+                y: py,
+                z: pz,
+            };
             for (const box of boxes) {
-                const dx = px - ex;
-                let tx0 = -Infinity;
-                let tx1 = Infinity;
-                if (dx !== 0) {
-                    const tl = (box.lx - ex) / dx;
-                    const tr = (box.rx - ex) / dx;
-                    tx0 = Math.min(tl, tr);
-                    tx1 = Math.max(tl, tr);
-                }
-
-                const dy = py - ey;
-                let ty0 = -Infinity;
-                let ty1 = Infinity;
-                if (dy !== 0) {
-                    const tt = (box.ty - ey) / dy;
-                    const tb = (box.by - ey) / dy;
-                    ty0 = Math.min(tt, tb);
-                    ty1 = Math.max(tt, tb);
-                }
-
-                const dz = pz - ez;
-                let tz0 = -Infinity;
-                let tz1 = Infinity;
-                if (dz !== 0) {
-                    const tf = (box.fz - ez) / dz;
-                    const tr = (box.rz - ez) / dz;
-                    tz0 = Math.min(tf, tr);
-                    tz1 = Math.max(tf, tr);
-                }
-
-                const t0 = Math.max(tx0, ty0, tz0);
-                const t1 = Math.min(tx1, ty1, tz1);
-                if (t1 < t0) {
-                    continue;
-                }
-                if (t0 < mint0) {
+                const intersectionResult = computeBoxIntersection(eye, pixel, box);
+                const t0 = intersectionResult.tList[0];
+                if (intersectionResult.isIntersecting && t0 < mint0) {
                     mint0 = t0;
-                    mintDiffuse = box.diffuse;
+                    mintBox = box;
+                    minIntersectionResult = intersectionResult;
                 }
             }
+            /**
+             * @type {Color}
+             */
             let color = {
                 r: 0,
                 g: 0,
                 b: 0,
                 a: 255,
             };
-            if (mintDiffuse !== null) {
-                color = diffuseToColor(mintDiffuse);
+            if (mintBox !== null) {
+                color = computeColor(mintBox, minIntersectionResult, eye, lights);
             }
             drawPixel(imageData, pxCol, pxRow, color);
         }
@@ -193,11 +402,21 @@ const main = async () => {
     const context = getCanvasContext(windowWidth, windowHeight);
     const boxes = await getInputBoxes(INPUT_BOXES_URL);
     const eye = {
-        ex: 0.5,
-        ey: 0.5,
-        ez: -0.5,
+        x: 0.5,
+        y: 0.5,
+        z: -0.5,
     };
-    drawBoxesInContext(context, boxes, eye);
+    const lights = [
+        {
+            x: -0.5,
+            y: 1.5,
+            z: -0.5,
+            ambient: [1, 1, 1],
+            diffuse: [1, 1, 1],
+            specular: [1, 1, 1]
+        }
+    ];
+    drawBoxesInContext(context, boxes, eye, lights);
 };
 
 window.onload = main;
